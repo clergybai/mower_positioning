@@ -1,8 +1,3 @@
-//
-// Created by Clemens Elflein on 27.10.22.
-// Copyright (c) 2022 Clemens Elflein. All rights reserved.
-//
-
 #ifndef SRC_SYSTEMMODEL_HPP
 #define SRC_SYSTEMMODEL_HPP
 
