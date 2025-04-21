@@ -262,7 +262,7 @@ bool setPose(mower_positioning::SetPoseSrvRequest &req, mower_positioning::SetPo
     double unused1, unused2, yaw;
 
     m.getRPY(unused1, unused2, yaw);
-    core.setState(req.robot_pose.position.x, req.robot_pose.position.y, yaw,0,0);
+    core.setState(req.robot_pose.position.x, req.robot_pose.position.y, yaw, 0, 0);
     return true;
 }
 
