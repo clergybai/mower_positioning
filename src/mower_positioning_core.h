@@ -35,7 +35,7 @@ namespace mower {
         public:
             mower_positioning_core();
 
-            const StateT &predict(double vx, double vr, double dt);
+            const StateT &predict(double vx, double steering_angle, double dt);
             const StateT &updatePosition(double x, double y, double covariance = 500.0);
             const StateT &updateOrientation(double theta, double covariance);
             const StateT &updateOrientation2(double vx, double vy, double covariance);
@@ -44,6 +44,8 @@ namespace mower {
             void setState(double px, double py, double theta, double vx, double vr);
             const Kalman::Covariance<StateT> &getCovariance();
             void setAntennaOffset(double offset_x, double offset_y);
+            void setWheelbase(double wheelbase); // Added
+            void setVehicleType(const std::string& vehicle_type); // Added
 
         public:
             Kalman::ExtendedKalmanFilter<StateT> ekf{};

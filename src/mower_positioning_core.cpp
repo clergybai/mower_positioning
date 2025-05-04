@@ -1,10 +1,10 @@
 #include "mower_positioning_core.h"
 
 
-const mower::positioning::StateT &mower::positioning::mower_positioning_core::predict(double vx, double vr, double dt) {
+const mower::positioning::StateT &mower::positioning::mower_positioning_core::predict(double vx, double steering_angle, double dt) {
     sys.setDt(dt);
     u.v() = vx;
-    u.dtheta() = vr;
+    u.steering_angle() = steering_angle;
     return ekf.predict(sys, u);
 }
 
@@ -93,5 +93,13 @@ void mower::positioning::mower_positioning_core::setState(double px, double py, 
 void mower::positioning::mower_positioning_core::setAntennaOffset(double offset_x, double offset_y) {
     pm.antenna_offset_x = om2.antenna_offset_x = offset_x;
     pm.antenna_offset_y = om2.antenna_offset_y = offset_y;
+}
+
+void mower::positioning::mower_positioning_core::setWheelbase(double wheelbase) {
+    sys.setWheelbase(wheelbase);
+}
+
+void mower::positioning::mower_positioning_core::setVehicleType(const std::string& vehicle_type) {
+    sys.setVehicleType(vehicle_type); // Added
 }
 

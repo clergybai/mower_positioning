@@ -68,15 +68,15 @@ namespace mower {
             //! Velocity
             static constexpr size_t V = 0;
             //! Angular Rate (Orientation-change)
-            static constexpr size_t DTHETA = 1;
+            static constexpr size_t STEERING_ANGLE = 1;
 
             T v() const { return (*this)[V]; }
 
-            T dtheta() const { return (*this)[DTHETA]; }
+            T steering_angle() const { return (*this)[STEERING_ANGLE]; }
 
             T &v() { return (*this)[V]; }
 
-            T &dtheta() { return (*this)[DTHETA]; }
+            T& steering_angle() { return (*this)[STEERING_ANGLE]; }
         };
 
 /**
@@ -99,9 +99,20 @@ namespace mower {
             //! Control type shortcut definition
             typedef mower::positioning::Control <T> C;
 
+            SystemModel() : dt(0.0), wheelbase(1.0), vehicle_type("differential") {
+                Kalman::Covariance<State<T>> c;
+                c.setIdentity();
+                c *= 0.001;
+                this->setCovariance(c);
+            }
+
             void setDt(double dt) {
                 this->dt = dt;
             }
+
+            void setWheelbase(double wheelbase) { this->wheelbase = wheelbase; }
+
+            void setVehicleType(const std::string& type) { vehicle_type = type; }
 
             /**
              * @brief Definition of (non-linear) state transition function
@@ -118,9 +129,21 @@ namespace mower {
             S f(const S &x, const C &u) const {
                 //! Predicted state vector after transition
                 S x_;
+                T v = u.v();
+                T theta = x.theta();
+                T vr;
+
+                if (vehicle_type == "differential") {
+                    vr = u.steering_angle(); // For differential, steering_angle is dtheta
+                } else if (vehicle_type == "ackermann") {
+                    T steering_angle = u.steering_angle();
+                    vr = (std::abs(steering_angle) > 1e-3) ? (v * std::tan(steering_angle) / wheelbase) : 0.0;
+                } else {
+                    vr = 0.0; // Unknown type
+                }
 
                 // New orientation given by old orientation plus orientation change
-                auto newOrientation = x.theta() + u.dtheta() * dt;
+                auto newOrientation = theta + vr * dt;
                 // Re-scale orientation to [-pi/2 to +pi/2]
 
                 x_.theta() = newOrientation;
@@ -128,8 +151,8 @@ namespace mower {
                 // New x-position given by old x-position plus change in x-direction
                 // Change in x-direction is given by the cosine of the (new) orientation
                 // times the velocity
-                x_.x() = x.x() + std::cos(newOrientation) * u.v() * dt;
-                x_.y() = x.y() + std::sin(newOrientation) * u.v() * dt;
+                x_.x() = x.x() + std::cos(newOrientation) * v * dt;
+                x_.y() = x.y() + std::sin(newOrientation) * v * dt;
 
                 x_.vx() = x.vx();
                 x_.vr() = x.vr();
@@ -143,6 +166,9 @@ namespace mower {
 
         protected:
             double dt = 0;
+            double wheelbase; // Added: Wheelbase for Ackermann
+            std::string vehicle_type; // Added: Vehicle type
+
             /**
              * @brief Update jacobian matrices for the system state transition function using current state
              *
@@ -161,16 +187,27 @@ namespace mower {
             void updateJacobians(const S &x, const C &u) {
                 // F = df/dx (Jacobian of state transition w.r.t. the state)
                 this->F.setZero();
+                T v = u.v();
+                T theta = x.theta();
+                T vr;
+                if (vehicle_type == "differential") {
+                    vr = u.steering_angle();
+                } else if (vehicle_type == "ackermann") {
+                    T steering_angle = u.steering_angle();
+                    vr = (std::abs(steering_angle) > 1e-3) ? (v * std::tan(steering_angle) / wheelbase) : 0.0;
+                } else {
+                    vr = 0.0;
+                }
 
                 // partial derivative of x.x() w.r.t. x.x()
                 this->F(S::X, S::X) = 1;
                 // partial derivative of x.x() w.r.t. x.theta()
-                this->F(S::X, S::THETA) = -std::sin(x.theta() + u.dtheta() * dt) * u.v() * dt;
+                this->F(S::X, S::THETA) = -std::sin(theta + vr * dt) * v * dt;
 
                 // partial derivative of x.y() w.r.t. x.y()
                 this->F(S::Y, S::Y) = 1;
                 // partial derivative of x.y() w.r.t. x.theta()
-                this->F(S::Y, S::THETA) = std::cos(x.theta() + u.dtheta() * dt) * u.v() * dt;
+                this->F(S::Y, S::THETA) = std::cos(theta + vr * dt) * v * dt;
 
                 // partial derivative of x.theta() w.r.t. x.theta()
                 this->F(S::THETA, S::THETA) = 1;
