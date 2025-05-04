@@ -204,14 +204,16 @@ void onWheelTicks(const mower_msgs::WheelTick::ConstPtr &msg) {
         return;
     }
     double dt = (msg->stamp - last_ticks.stamp).toSec();
+    // ROS_INFO_STREAM("dt: " << dt);
 
-    double d_wheel_l = (double) (msg->wheel_ticks_rl - last_ticks.wheel_ticks_rl) * (1.0 /(double)msg->wheel_tick_factor);
-    double d_wheel_r = (double) (msg->wheel_ticks_rr - last_ticks.wheel_ticks_rr) * (1.0 /(double)msg->wheel_tick_factor);
+    double d_wheel_l = (double) (msg->wheel_ticks_rl - last_ticks.wheel_ticks_rl) * (1.0 /msg->wheel_tick_factor);
+    double d_wheel_r = (double) (msg->wheel_ticks_rr - last_ticks.wheel_ticks_rr) * (1.0 /msg->wheel_tick_factor);
+    // ROS_INFO_STREAM("d_wheel_l: " << d_wheel_l << " d_wheel_r: " << d_wheel_r);
 
-    if(msg->wheel_direction_rl) {
+    if(!msg->wheel_direction_rl) {
         d_wheel_l *= -1.0;
     }
-    if(msg->wheel_direction_rr) {
+    if(!msg->wheel_direction_rr) {
         d_wheel_r *= -1.0;
     }
 
@@ -226,6 +228,8 @@ void onWheelTicks(const mower_msgs::WheelTick::ConstPtr &msg) {
         double v_left = d_wheel_l / dt;
         double v_right = d_wheel_r / dt;
         vx = (v_left + v_right) / 2.0;
+
+        // ROS_INFO_STREAM("v_left: " << v_left << " v_right: " << v_right << " vx:" << vx);
 
         double steering_angle = msg->steering_angle;
         vr = 0.0;
