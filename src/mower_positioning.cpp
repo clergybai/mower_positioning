@@ -55,6 +55,8 @@ double vx = 0.0;
 // NEW: Angular velocity for Ackermann model
 double vr = 0.0;
 
+double last_steering_angle = 0.0;
+
 // Min speed for motion vector to be fed into kalman filter
 double min_speed = 0.0;
 
@@ -116,13 +118,15 @@ void onImu(const sensor_msgs::Imu::ConstPtr &msg) {
     if (has_ticks && vehicle_type == "ackermann") {
         // For Ackermann, blend IMU and wheel-based angular velocity
         fused_vr = 0.8 * imu_vr + 0.2 * vr; // Adjustable weights
+    } else {
+        last_steering_angle = imu_vr; // For differential, use IMU vr as steering_angle
     }
 
     // core.predict(vx, msg->angular_velocity.z - gyro_offset, (msg->header.stamp - last_imu.header.stamp).toSec());
     // auto x = core.updateSpeed(vx, msg->angular_velocity.z - gyro_offset,0.01);
 
     // MODIFIED: Use fused_vr for prediction
-    core.predict(vx, fused_vr, (msg->header.stamp - last_imu.header.stamp).toSec());
+    core.predict(vx, last_steering_angle, (msg->header.stamp - last_imu.header.stamp).toSec());
     auto x = core.updateSpeed(vx, fused_vr, 0.01);
 
     odometry.header.stamp = ros::Time::now();
@@ -231,10 +235,10 @@ void onWheelTicks(const mower_msgs::WheelTick::ConstPtr &msg) {
 
         // ROS_INFO_STREAM("v_left: " << v_left << " v_right: " << v_right << " vx:" << vx);
 
-        double steering_angle = msg->steering_angle;
+        last_steering_angle = msg->steering_angle; // Store steering angle
         vr = 0.0;
-        if (std::abs(steering_angle) > 1e-3) { // Avoid division by zero
-            vr = vx * std::tan(steering_angle) / wheelbase;
+        if (std::abs(last_steering_angle) > 1e-3) { // Avoid division by zero
+            vr = vx * std::tan(last_steering_angle) / wheelbase;
         }
 
         // NEW: Optional validation of wheel speed difference
@@ -379,6 +383,8 @@ int main(int argc, char * argv[])
     gps_enabled = true;
     vx = 0.0;
     vr = 0.0; // NEW: Initialize vr
+    last_steering_angle = 0.0; // Initialize steering angle
+
     has_gyro = false;
     has_ticks = false;
     gyro_offset = 0;
@@ -418,6 +424,8 @@ int main(int argc, char * argv[])
     }
 
     core.setAntennaOffset(antenna_offset_x, antenna_offset_y);
+    core.setVehicleType(vehicle_type); // Added
+    core.setWheelbase(wheelbase);     // Added
 
     ROS_INFO_STREAM("Antenna offset: " << antenna_offset_x << ", " << antenna_offset_y);
 
